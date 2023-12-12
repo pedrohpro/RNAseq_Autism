@@ -31,25 +31,16 @@ rm(list = ls())     # clears Environment
 
 library(tidyverse)
 library(DESeq2)
-library(dplyr)
 library(umap)
 library(uwot)
 library(cluster)
-library(ggplot2)
 library(Seurat)
 library(patchwork)
 library(mdp)
 library(ComplexHeatmap)
 library(CEMiTool)
-library(limma)
-library(edgeR)
 library(sva)
 
-#install.packages("tidyverse")
-#BiocManager::install("limma")
-#BiocManager::install("CEMiTool")
-#BiocManager::install("edgeR")
-#BiocManager::install("sva")
 ```
 
 ### Data importation {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
@@ -58,22 +49,30 @@ library(sva)
 
 counts <- read.delim("https://raw.githubusercontent.com/pedrohpro/RNAseq_Autism/main/bulkBrain_counts.txt", row.names = 1)
 
-metadoador <- read.csv("https://raw.githubusercontent.com/pedrohpro/RNAseq_Autism/main/bulkBrain_donorMetadata.csv", sep = ";", row.names = 1)
+meta_donor <- read.csv("https://raw.githubusercontent.com/pedrohpro/RNAseq_Autism/main/bulkBrain_donorMetadata.csv", sep = ";", row.names = 1)
 
-genesofi <- read.csv("https://raw.githubusercontent.com/pedrohpro/RNAseq_Autism/main/genesofinterest.csv", sep = ";")
+genes_asd <- read.csv("https://raw.githubusercontent.com/pedrohpro/RNAseq_Autism/main/genesofinterest.csv", sep = ";")
+
+genes_down <- read.csv("https://raw.githubusercontent.com/pedrohpro/RNAseq_Autism/main/genes_down.csv", sep = ";")
+
+patients_mutations <- read.csv("https://raw.githubusercontent.com/pedrohpro/RNAseq_Autism/main/pacientsmutations.csv", sep = ";", row.names = 1)
+
+# Maybe I should remove this part below
+# Down genes
+down_complement <- paste(genes_down$ensembl_id, collapse = "|")
 
 # Checking genes
-enriched_genes <- genesofi$genesofinterest
+enriched_genes <- genes_asd$genes_asdnterest
 any(duplicated(enriched_genes))
-genesofi$pathway <- factor(genesofi$pathway)
-summary(genesofi$pathway)
+genes_asd$pathway <- factor(genes_asd$pathway)
+summary(genes_asd$pathway)
 ```
 
 ### Removing samples {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 Here we remove outliers and problematic samples from the counts matrix.
 
-All samples from the MSC region were removed because the actual region the acronym refers to is not in the metadata and we can not safely assume what region it refers to.
+All samples from the MSC region were removed because the region the acronym refers to is not in the metadata and we can not safely assume what region it is.
 
 ```{r}
 
@@ -84,13 +83,13 @@ counts <- select(counts, -c("HSB154.MSC","HSB96.MSC","HSB97.MSC","HSB98.MSC"))
 ### Cleaning counts matrix {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 ```{r}
-# Excluding genes with low counts (will be done later in the code)
-counts <- counts[rowSums(counts) >= 50,] # removes genes that have less than 50 counts in all samples
+# Excluding genes with low counts (less than 50 in all samples combined)
+counts <- counts[rowSums(counts) >= 50,]
 
 # Changing the region name M1CS1C to MS1 for better visualization
 colnames(counts) <- gsub("M1CS1C", "MS1", colnames(counts))
 
-# Changing "|" to "-" for Seurat
+# Changing "|" to "-" (for Seurat and other tools)
 rownames(counts) <- gsub("\\|", "-", rownames(counts))
 
 # Changing gene names
@@ -106,49 +105,47 @@ rownames(counts) <- gsub("\\|", "-", rownames(counts))
 ### Adjusting donor metadata data frame {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 ```{r}
-# Necessary step to create metadata dataframe
-for (j in 1:ncol(metadoador)){
-  metadoador[,j] <- as.character(metadoador[,j])
-}
+# Changing all columns to character (Necessary step to create metadata dataframe)
+meta_donor <- mutate_all(meta_donor, as.character)
 
 # Changing some names in the donor's metadata data frame for better visualizing
 # 4M will become 0.3Y
-metadoador["HSB121", "Age"] <- "0.3Y"
-metadoador["HSB132", "Age"] <- "0.3Y"
-metadoador["HSB139", "Age"] <- "0.3Y"
+meta_donor$Age <- gsub("4M", "0.3Y", meta_donor$Age)
 # 6M will become 0.5Y
-metadoador["HSB131", "Age"] <- "0.5Y"
+meta_donor$Age <- gsub("6M", "0.5Y", meta_donor$Age)
 # 301days will become 0.8Y
-metadoador["HSB171", "Age"] <- "0.8Y"
+meta_donor$Age <- gsub("301days", "0.8Y", meta_donor$Age)
 # 12M will become 1Y
-metadoador["HSB122", "Age"] <- "1Y"
+meta_donor$Age <- gsub("12M", "1Y", meta_donor$Age)
 # 2Y178d will become 2.5Y
-metadoador["HSB173", "Age"] <- "2.5Y"
+meta_donor$Age <- gsub("2Y178d", "2.5Y", meta_donor$Age)
 # 2Y305d will become 2.8Y
-metadoador["HSB172", "Age"] <- "2.8Y"
+meta_donor$Age <- gsub("2Y305d", "2.8Y", meta_donor$Age)
 # 8Y90d will become 8.3Y
-metadoador["HSB174", "Age"] <- "8.3Y"
+meta_donor$Age <- gsub("8Y90d", "8.3Y", meta_donor$Age)
 # 10Y265d will become 10.7Y
-metadoador["HSB175", "Age"] <- "10.7Y"
+meta_donor$Age <- gsub("10Y265d", "10.7Y", meta_donor$Age)
+
+# Creating a donor column
+meta_donor$Donor <- rownames(meta_donor)
 
 # Chagning Sequencing.Site column name
-names(metadoador)[names(metadoador) == "Sequencing.Site"] <- "SequencingSite"
+names(meta_donor)[names(meta_donor) == "Sequencing.Site"] <- "SequencingSite"
 ```
 
 ### Creating sample metadata data frame {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 ```{r}
 
-
 # Creating the empty metadata dataframe for all counts
-meta <- data.frame(matrix("vazio", nrow = length(colnames(counts)), ncol = length(colnames(metadoador))), stringsAsFactors=FALSE)
+meta <- data.frame(matrix("vazio", nrow = length(colnames(counts)), ncol = length(colnames(meta_donor))), stringsAsFactors=FALSE)
 
-colnames(meta) <- colnames(metadoador) # colocar nome nas colunas
+colnames(meta) <- colnames(meta_donor) # colocar nome nas colunas
 rownames(meta) <- colnames(counts) # IMPORTANTÍSSIMO para o deseq2
 
 # Filling up the metadata dataframe for all samples (quite a beautiful loop I must say)
 for (i in 1:length(rownames(meta))){
-  meta[i,] <- metadoador[grepl(gsub("\\..*", "", colnames(counts)[i]), rownames(metadoador)), ]
+  meta[i,] <- meta_donor[grepl(gsub("\\..*", "", colnames(counts)[i]), rownames(meta_donor)), ]
 }
 
 # Creating a new column for regions acronyms
@@ -167,36 +164,22 @@ This step was done after analyzing the dimensionality reduction techniques. Each
 
 ```{r}
 
-# Grouping developmental Periods
-# 8 to 12 weeks
-# 13 to 19 weeks
-# 20 to 40 weeks
-# 0 to 2 years
-# 3 to 10 years
-# 11 to 22 years
-# 23 to 40 years
-
 # Necessary to perform the grouping by periods
 meta$Days <- as.numeric(meta$Days)
 
-# the 280 days are the number of days of gestation. meta$Days is the number of days since fertilization and not birth
-for (k in 1:length(rownames(meta))){
-  if (meta$Days[k] <= 12*7){
-    meta$GroupedAge[k] <- "8_12PCW"
-  }else if (meta$Days[k] <= 19*7){
-    meta$GroupedAge[k] <- "13_19PCW"
-  }else if (meta$Days[k] <= 40*7){
-    meta$GroupedAge[k] <- "20_40PCW"
-  }else if (meta$Days[k] <= 280 + 365*2){
-    meta$GroupedAge[k] <- "0_2YEARS"
-  }else if (meta$Days[k] <= 280 + 365*10){
-    meta$GroupedAge[k] <- "3_10YEARS"
-  }else if (meta$Days[k] <= 280 + 365*22){
-    meta$GroupedAge[k] <- "11_22YEARS"
-  }else {
-    meta$GroupedAge[k] <- "23_40YEARS"
-  }
-}
+# the 280 days are the number of days of gestation. meta$Days is the number of days since fertilization and not birth (Note: order MUST be from yougest to oldest)
+meta <- meta %>%
+  mutate(
+    GroupedAge = case_when(
+      Days <= 12 * 7 ~ "8_12PCW",
+      Days <= 19 * 7 ~ "13_19PCW",
+      Days <= 40 * 7 ~ "20_40PCW",
+      Days <= (280 + 365 * 2) ~ "0_2YEARS",
+      Days <= (280 + 365 * 10) ~ "3_10YEARS",
+      Days <= (280 + 365 * 22) ~ "11_22YEARS",
+      TRUE ~ "23_40YEARS"
+    )
+  )
 
 # re-leveling all the factors so that when plotting the data, such as in a PCA, it looks better and correctly ordered
 meta$GroupedAge <- factor(meta$GroupedAge, levels = c("8_12PCW", "13_19PCW", "20_40PCW", "0_2YEARS", "3_10YEARS", "11_22YEARS", "23_40YEARS"))
@@ -207,34 +190,29 @@ meta$GroupedAge <- factor(meta$GroupedAge, levels = c("8_12PCW", "13_19PCW", "20
 This step was done after analyzing the dimensionality reduction techniques. Each group was defined based on biological and statistical evidence. The paper will explain it in detail.
 
 ```{r}
-# Grouping regions
-for (h in 1:nrow(meta)){
-  if (any(meta$Region[h] %in% c("A1C","ITC","TC","STC"))){
-    meta$GroupedRegion[h] <- "Temporal_lobe"
-  }else if (any(meta$Region[h] %in% c("IPC","S1C","PC"))){
-    meta$GroupedRegion[h] <- "Parietal_lobe"
-  }else if (any(meta$Region[h] %in% c("M1C","DFC","MFC","OFC","VFC","MS1"))){
-    meta$GroupedRegion[h] <- "Frontal_lobe"
-  }else if (any(meta$Region[h] %in% c("V1C","OC"))){
-    meta$GroupedRegion[h] <- "Occipital_lobe"
-  }else if (any(meta$Region[h] %in% c("AMY","HIP","STR","MD","DTH"))){
-    meta$GroupedRegion[h] <- "Limbic_system"
-  }else if (any(meta$Region[h] %in% c("CBC","URL"))){
-    meta$GroupedRegion[h] <- "Cerebellum"
-  }else {
-    meta$GroupedRegion[h] <- "Ganglionic_eminence"
-  }
-}
 
-# Perhaps it would be interesting to re-level them too (but not crucial for visualization)
-meta$GroupedRegion <- factor(meta$GroupedRegion)
+meta <- meta %>%
+  mutate(
+    GroupedRegion = case_when(
+      Region %in% c("A1C", "ITC", "TC", "STC") ~ "Temporal_lobe",
+      Region %in% c("IPC", "S1C", "PC") ~ "Parietal_lobe",
+      Region %in% c("M1C", "DFC", "MFC", "OFC", "VFC", "MS1") ~ "Frontal_lobe",
+      Region %in% c("V1C", "OC") ~ "Occipital_lobe",
+      Region %in% c("AMY", "HIP", "STR", "MD", "DTH") ~ "Limbic_system",
+      Region %in% c("CBC", "URL") ~ "Cerebellum",
+      TRUE ~ "Ganglionic_eminence" # talvez melhor colocar as regiões específicas
+    )
+  )
+
+# re-leveling all the factors so that when plotting the data, such as in a PCA, it looks better ordered
+meta$GroupedRegion <- factor(meta$GroupedRegion, levels = c("Frontal_lobe", "Parietal_lobe", "Temporal_lobe", "Occipital_lobe", "Limbic_system", "Cerebellum"))
 ```
 
 ### Final touch-ups on metadata {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 ```{r}
 # Reorganizing the metadata columns
-meta <- meta %>% relocate(Age, GroupedAge, Region, GroupedRegion, Hemisphere, Sex, Ethnicity, SequencingSite, pH)
+meta <- meta %>% relocate(Donor, Age, GroupedAge, Region, GroupedRegion, Hemisphere, Sex, Ethnicity, SequencingSite, pH)
 
 # Changing NA to 0 from pH column
 meta$pH <- as.character(meta$pH)
@@ -242,16 +220,11 @@ meta$pH[is.na(meta$pH)] <- 0
 meta$pH <- as.factor(meta$pH)
 
 # Removing Days column (no longer necessary)
-meta <- subset(meta, select = -Days)
-
-# Creating an auxiliary column for sample visualization 
-meta$AuxCol <- 0
+meta <- meta %>% select(-Days)
 
 # Changing char columns to factors for deseq2
 # careful: this can change the level order in GroupedAge from cronological to alphabetical
-for (i in 1:ncol(meta)){
-  meta[,i] <- factor(meta[,i])
-}
+meta <- mutate_all(meta, as.factor)
 
 # Verificando se tem o mesmo nome e estão na mesma ordem
 all(colnames(counts) %in% rownames(meta)) # mesma nome
@@ -264,27 +237,32 @@ Note: Because GroupedAge has been leveled when factored, both lists: time_counts
 
 ```{r}
 
+#time_subs <- list()
+
+#for (i in levels(meta$GroupedAge)){
+#  filter <- grepl(i, meta$GroupedAge)
+#  time_subs[[i]]$cts_raw <- list(counts[,filter])
+#  time_subs[[i]]$meta <- list(meta[filter,])
+#}
+
+# Re-leveling all columns of all subsets: there isnt always samples for each level
+# (NOTE: re-factors in alphabetical order! But age levels order was preserved)
+#time_subs <- map()
+
+##############################################################
+
 time_metasubs <- list()
 time_countsubs <- list()
 
 for (i in levels(meta$GroupedAge)){
   filter <- grepl(i, meta$GroupedAge)
-  countsub <- counts[,filter]
-  time_countsubs <- append(time_countsubs, list(countsub))
-  metasub <- meta[filter,]
-  # Re-factor so that there is only one level
-  metasub$GroupedAge <- factor(metasub$GroupedAge)
-  time_metasubs <- append(time_metasubs, list(metasub))
+  time_metasubs <- append(time_metasubs, list(meta[filter,]))
+  time_countsubs <- append(time_countsubs, list(counts[,filter]))
 }
-
 
 # Re-leveling all columns of all subsets: there isnt always samples for each level
-# (NOTE: it will re-factor in alphabetical order!)
-for (i in 1:length(time_metasubs)){
-  for (j in colnames(time_metasubs[[i]])){
-    time_metasubs[[i]][,j] <- factor(time_metasubs[[i]][,j])
-  }
-}
+# (NOTE: re-factors in alphabetical order! But age levels order was preserved)
+time_metasubs <- map(time_metasubs, ~ mutate_all(.x, factor))
 
 ```
 
@@ -297,17 +275,14 @@ for (i in 1:length(time_metasubs)){
 space_metasubs <- list()
 space_countsubs <- list()
 
-for (i in levels(meta$GroupedRegion)[!grepl("Ganglionic_eminence", levels(meta$GroupedRegion))]){
-  space_metasubs <- append(space_metasubs, list(meta[grepl(i, meta$GroupedRegion),]))
-  space_countsubs <- append(space_countsubs, list(counts[,grepl(i, meta$GroupedRegion)]))
+for (i in discard(levels(meta$GroupedRegion), ~ .x == "Ganglionic_eminence")){
+  filter <- grepl(i, meta$GroupedRegion)
+  space_metasubs <- append(space_metasubs, list(meta[filter,]))
+  space_countsubs <- append(space_countsubs, list(counts[,filter]))
 }
 
-# Re-leveling all factors so that no factor level has 0 samples
-for (i in 1:length(space_metasubs)){
-  for (j in colnames(space_metasubs[[i]])){
-    space_metasubs[[i]][,j] <- factor(space_metasubs[[i]][,j])
-  }
-}
+# Re-leveling all factors so that no factor level has 0 samples (all col 4 all df)
+space_metasubs <- map(space_metasubs, ~ mutate_all(.x, factor))
 
 ```
 
@@ -317,15 +292,14 @@ Correct as in: meta and counts have the same samples and in the same order.
 
 ```{r}
 
-for (i in 1:length(time_metasubs)){
-  print(all(colnames(time_countsubs[[i]]) %in% rownames(time_metasubs[[i]]))) # same names
-  print(all(colnames(time_countsubs[[i]]) == rownames(time_metasubs[[i]]))) # same order
-}
+print(paste0("Time meta and counts subsets have the same (rownames and colnames) names? ", all(map2_lgl(time_countsubs, time_metasubs, ~ all(colnames(.x) %in% rownames(.y))))))
 
-for (i in 1:length(space_metasubs)){
-  print(all(colnames(space_countsubs[[i]]) %in% rownames(space_metasubs[[i]]))) # same names
-  print(all(colnames(space_countsubs[[i]]) == rownames(space_metasubs[[i]]))) # same order
-}
+print(paste0("Time meta and counts subsets have the same (rownames and colnames) order? ", all(map2_lgl(time_countsubs, time_metasubs, ~ all(colnames(.x) == rownames(.y))))))
+
+print(paste0("Space meta and counts subsets have the same (rownames and colnames) names? ", all(map2_lgl(space_countsubs, space_metasubs, ~ all(colnames(.x) %in% rownames(.y))))))
+
+print(paste0("Space meta and counts subsets have the same (rownames and colnames) order? ", all(map2_lgl(space_countsubs, space_metasubs, ~ all(colnames(.x) == rownames(.y))))))
+
 ```
 
 # Exploratory analysis {style="background-color: #0049b7; color: #FFF685;  padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
@@ -350,6 +324,7 @@ if (!file.exists("images")){
   dir.create("images/expl_analysis/time_subsets/pre_batch")
   dir.create("images/expl_analysis/time_subsets/pre_batch/PCAs")
   dir.create("images/expl_analysis/time_subsets/pre_batch/UMAPs")
+  dir.create("images/expl_analysis/time_subsets/pre_batch/BatchVsDesVar")
   dir.create("images/expl_analysis/time_subsets/adj_batch")
   dir.create("images/expl_analysis/time_subsets/adj_batch/PCAs")
   dir.create("images/expl_analysis/time_subsets/adj_batch/UMAPs")
@@ -393,6 +368,8 @@ if (!file.exists("images")){
   dir.create("images/cor_network/proof_of_method")
   dir.create("images/cor_network/time_subsets")
   dir.create("images/cor_network/space_subsets")
+  
+  dir.create("images/Down")
 }
 
 ```
@@ -443,8 +420,10 @@ sampDistri_func(meta, "Age","Region", "Age_Region.png")
 sampDistri_func(meta, "GroupedAge","Region", "GroupedAge_Region.png")
 sampDistri_func(meta, "Age","GroupedRegion", "Age_GroupedRegion.png")
 sampDistri_func(meta, "GroupedAge","GroupedRegion", "GroupedAge_GroupedRegion.png")
-sampDistri_func(meta, "GroupedAge","AuxCol", "GroupedAge_AuxCol.png")
-sampDistri_func(meta, "AuxCol","GroupedRegion", "AuxCol_GroupedRegion.png")
+
+# DESCOBRIR OUTRO JEITO DE FAZER ISSO SEM AuxCol
+#sampDistri_func(meta, "GroupedAge","AuxCol", "GroupedAge_AuxCol.png")
+#sampDistri_func(meta, "AuxCol","GroupedRegion", "AuxCol_GroupedRegion.png")
 
 sampDistri_func(meta, "GroupedAge","pH", "GroupedAge_pH.png")
 sampDistri_func(meta, "GroupedAge","PMI", "GroupedAge_pH.png")
@@ -454,11 +433,6 @@ sampDistri_func(meta, "GroupedRegion","pH", "GroupedRegion_pH.png")
 sampDistri_func(meta, "GroupedRegion","PMI", "GroupedRegion_pH.png")
 sampDistri_func(meta, "GroupedRegion","RIN", "GroupedRegion_pH.png")
 
-# Remove the column "AuxCol" from the dataframe "meta" (no longer necessary)
-# Arummar isso e colocando quando criando as listas de subsets: time_metasubs
-#for (i in 1:length(time_metasubs)){
-#  time_metasubs[[i]] <- time_metasubs[[i]] %>% select(-AuxCol)
-#}
 ```
 
 ### DR - all samples - not adjusted for batch effect {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
@@ -661,6 +635,15 @@ for (i in 1:length(time_metasubs)){
     ggsave(fileNamePath, plot = umaps, width = 10, height = 10)
   }
 }
+```
+
+#### Comparing batch effect and desired variable (region) {style="background-color: #449944; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px;"}
+
+```{r}
+# Choosen genes
+View(counts[grepl("CACNA1H|RELN", rownames(counts)),])
+
+
 ```
 
 ### DR - Time - adjusted for batch effect {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
@@ -1122,10 +1105,10 @@ for (i in 1:length(time_modules)){
   # Add pathway column (crazy loop hahaha)
   genIntMod$pathway <- NA
   while (anyNA(genIntMod$pathway)){
-    for (j in 1:length(genesofi$genesofinterest)){
+    for (j in 1:length(genes_asd$genes_asdnterest)){
       for (k in 1:length(genIntMod$genes)){
-        if (is.na(genIntMod[k,"pathway"]) & grepl(genesofi[j,"genesofinterest"],genIntMod[k,"genes"])){
-          genIntMod[k,"pathway"] <- as.character(genesofi[j,"pathway"])
+        if (is.na(genIntMod[k,"pathway"]) & grepl(genes_asd[j,"genes_asdnterest"],genIntMod[k,"genes"])){
+          genIntMod[k,"pathway"] <- as.character(genes_asd[j,"pathway"])
         }
       }
     }
@@ -1246,10 +1229,10 @@ for (i in 1:length(space_modules)){
   # Add pathway column (crazy loop hahaha)
   genIntMod$pathway <- NA
   while (anyNA(genIntMod$pathway)){
-    for (j in 1:length(genesofi$genesofinterest)){
+    for (j in 1:length(genes_asd$genes_asdnterest)){
       for (k in 1:length(genIntMod$genes)){
-        if (is.na(genIntMod[k,"pathway"]) & grepl(genesofi[j,"genesofinterest"],genIntMod[k,"genes"])){
-          genIntMod[k,"pathway"] <- as.character(genesofi[j,"pathway"])
+        if (is.na(genIntMod[k,"pathway"]) & grepl(genes_asd[j,"genes_asdnterest"],genIntMod[k,"genes"])){
+          genIntMod[k,"pathway"] <- as.character(genes_asd[j,"pathway"])
         }
       }
     }
@@ -1523,9 +1506,9 @@ my_heatmaps <- function(type, list_log, list_padj, list_meta, wanted_genes, gene
     }
     
     # NOTE: because this if is after the sig if it will only look at the most DE genes that are significantly expressed.
-    if (wanted_genes == "mostDE"){
-      log_df <- df[order(-rowSums(abs(log_df))), ]
-      log_df <- head(log_df, 70)
+    if (genes_category == "Most differentially expressed genes"){
+      log_df <- log_df[order(-rowSums(abs(log_df))), ]
+      heat_df <- head(log_df, 70) # 70 most DEG
     }else{
       # Select only wanted genes/rows
       searchGenes <- paste(wanted_genes, collapse = "|")
@@ -1549,7 +1532,8 @@ my_heatmaps <- function(type, list_log, list_padj, list_meta, wanted_genes, gene
        #col = colorRampPalette(c("navy", "white", "firebrick3"))(500),
        #col = colorRamp2(c(-2, 0, 2), c("navy", "white", "firebrick3")),
        column_title = title,
-       column_dend_height = unit(3, "cm"), 
+       cluster_columns = ifelse(type == "time", TRUE, FALSE),
+       #column_dend_height = unit(3, "cm"), # dar um jeito de por um ifelse aqui!!!
        row_dend_width = unit(5, "cm"),
        column_names_rot = 45,
        column_title_gp = gpar(fontsize = 20, fontface = "bold", fill = "#A00000", col = "white", border = "black"),
@@ -1648,6 +1632,62 @@ my_heatmaps(type = "time",
            wid = 400
            )
 
+# Time - Most DEG comparing regions
+my_heatmaps(type = "space", 
+           list_log = space_logsubs, 
+           list_padj = space_padjsubs, 
+           list_meta = space_metasubs, 
+           genes_category = "Most differentially expressed genes", 
+           sig = FALSE, 
+           dir = "images/dif_exp/space_subsets/mostDEGenes_allpadj/",
+           hei = 2000,
+           wid = 800
+           )
+
+# Down syndrome genes
+my_heatmaps(type = "space", 
+           list_log = space_logsubs, 
+           list_padj = space_padjsubs, 
+           list_meta = space_metasubs, 
+           wanted_genes = down_complement,
+           genes_category = "Down syndrome genes (complement)", 
+           sig = FALSE, 
+           dir = "images/Down/",
+           hei = 1000,
+           wid = 800
+           )
 
 # tomar cuidado com clusterizar o heatmap depois de colocar os zeros artificialmente em valores de log2fc cujo padj for < 0.05 porque dai vc cria agrupamentos com os dendogramas que não correspondem a realidade. Talvez seja melhor fazer os dendogramas com todos os valores orginais de log2fc e depois disso colocar os zeros e pintar esses de branco. Não sei fazer isso não por enquanto.
+
+
+
+
+#################### Mutações por paciente ############ (only frontal lobe) ######
+list_heat <- list()
+for (i in rownames(patients_mutations)){
+  aux_ht <- space_logsubs[[1]][grepl(patients_mutations[i,"mutated_genes"],rownames(space_logsubs[[1]])),]
+  rownames(aux_ht) <- substring(rownames(aux_ht), 17)
+  aux_ht <- as.matrix(aux_ht)
+  list_heat[[i]] <- Heatmap(
+    aux_ht,
+    column_title = "Mutations on ASD patients\n(Frontal lobe of non-ASD)",
+    column_title_gp = gpar(fontsize = 20, fontface = "bold", fill = "#BB0000", col = "white", border = "black"),
+    name = "Log2\nFold\nChange",
+    row_title = i,
+    row_title_rot = 0,
+    row_title_gp = gpar(fontsize = 10, fontface = "bold", fill = "#008800", col = "white", border = "#ffff00"),
+    cluster_columns = FALSE, 
+    cluster_rows = FALSE, 
+    column_names_rot = 45,
+    )
+}
+
+combined_ht = list_heat[[1]] %v% list_heat[[2]] %v% list_heat[[3]] %v% list_heat[[4]] %v% list_heat[[5]] %v% list_heat[[6]] %v% list_heat[[7]] %v% list_heat[[8]] %v% list_heat[[9]] %v% list_heat[[10]] %v%
+
+# Open image
+png(file = "images/dif_exp/mut_pacientes.png", width = 800, height = 500)
+# Drawing heatmap
+draw(combined_ht)
+# Close 
+dev.off() 
 ```
