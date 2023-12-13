@@ -4,7 +4,7 @@ format: html
 editor: visual
 ---
 
-# Bulk RNA-seq - control *post mortem* brains {style="background-color: #4b6043; color: #FFF685;  padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+# Bulk RNA-seq - control *post mortem* brains {style="background-color: #DDDDDD; color: #000000;  padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 This code will explain all the steps we took to analyze the bulk RNA-seq post mortem control brain data from the BrainSpan Atlas of the Developmental Human Brain.
 
@@ -14,7 +14,7 @@ Oriented by: Andréa Laurato Sertié
 
 Co-oriented by: André Luiz Teles e Silva, Helder Takashi Imoto Nakaya, Jonathan Peña Avila
 
-### Useful commands {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+### Cleaning environment {style="background-color: #DDDDDD; color: #000000; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 ```{r}
 # echo: false       # disables printing of code (only output is displayed)
@@ -23,9 +23,7 @@ rm(list = ls())     # clears Environment
 
 ```
 
-# Data wrangling {style="background-color: #0049b7; color: #FFF685;  padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
-
-### Library importation {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+### Library importation {style="background-color: #DDDDDD; color: #000000; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 ```{r}
 
@@ -40,10 +38,86 @@ library(mdp)
 library(ComplexHeatmap)
 library(CEMiTool)
 library(sva)
+library(gridExtra)
 
 ```
 
-### Data importation {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+### Creating directories for images and results {style="background-color: #DDDDDD; color: #000000; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+
+```{r}
+
+if (!file.exists("images")){
+  dir.create("images")
+  dir.create("images/sample_distribution")
+  
+  dir.create("images/expl_analysis")
+  dir.create("images/expl_analysis/all_samples")
+  dir.create("images/expl_analysis/all_samples/pre_batch")
+  dir.create("images/expl_analysis/all_samples/pre_batch/PCAs")
+  dir.create("images/expl_analysis/all_samples/pre_batch/UMAPs")
+  dir.create("images/expl_analysis/all_samples/adj_batch")
+  dir.create("images/expl_analysis/all_samples/adj_batch/PCAs")
+  dir.create("images/expl_analysis/all_samples/adj_batch/UMAPs")
+  
+  dir.create("images/expl_analysis/time_subsets")
+  dir.create("images/expl_analysis/time_subsets/pre_batch")
+  dir.create("images/expl_analysis/time_subsets/pre_batch/PCAs")
+  dir.create("images/expl_analysis/time_subsets/pre_batch/UMAPs")
+  dir.create("images/expl_analysis/time_subsets/pre_batch/BatchVsDesVar")
+  dir.create("images/expl_analysis/time_subsets/adj_batch")
+  dir.create("images/expl_analysis/time_subsets/adj_batch/PCAs")
+  dir.create("images/expl_analysis/time_subsets/adj_batch/UMAPs")
+  dir.create("images/expl_analysis/time_subsets/adj_batch/Cooks")
+  dir.create("images/expl_analysis/time_subsets/adj_batch/mdp")
+  dir.create("images/expl_analysis/time_subsets/adj_batch/BatchVsDesVar")
+  
+  dir.create("images/expl_analysis/space_subsets")
+  dir.create("images/expl_analysis/space_subsets/pre_batch")
+  dir.create("images/expl_analysis/space_subsets/pre_batch/PCAs")
+  dir.create("images/expl_analysis/space_subsets/pre_batch/UMAPs")
+  dir.create("images/expl_analysis/space_subsets/pre_batch/BatchVsDesVar")
+  dir.create("images/expl_analysis/space_subsets/adj_batch")
+  dir.create("images/expl_analysis/space_subsets/adj_batch/PCAs")
+  dir.create("images/expl_analysis/space_subsets/adj_batch/UMAPs")
+  dir.create("images/expl_analysis/space_subsets/adj_batch/Cooks")
+  dir.create("images/expl_analysis/space_subsets/adj_batch/mdp")
+  dir.create("images/expl_analysis/space_subsets/adj_batch/BatchVsDesVar")
+  
+  dir.create("images/dif_exp")
+  dir.create("images/dif_exp/proof_of_method")
+  
+  dir.create("images/dif_exp/time_subsets")
+  dir.create("images/dif_exp/time_subsets/wantedGenes_allpadj")
+  dir.create("images/dif_exp/time_subsets/wantedGenes_allpadj/only_cortex")
+  dir.create("images/dif_exp/time_subsets/wantedGenes_sigpadj")
+  dir.create("images/dif_exp/time_subsets/wantedGenes_sigpadj/only_cortex")
+  dir.create("images/dif_exp/time_subsets/mostDEGenes_allpadj")
+  dir.create("images/dif_exp/time_subsets/mostDEGenes_allpadj/only_cortex")
+  dir.create("images/dif_exp/time_subsets/mostDEGenes_sigpadj")
+  dir.create("images/dif_exp/time_subsets/mostDEGenes_sigpadj/only_cortex")
+  
+  dir.create("images/dif_exp/space_subsets")
+  dir.create("images/dif_exp/space_subsets/wantedGenes_allpadj")
+  dir.create("images/dif_exp/space_subsets/wantedGenes_allpadj/only_earlyStages")
+  dir.create("images/dif_exp/space_subsets/wantedGenes_sigpadj")
+  dir.create("images/dif_exp/space_subsets/wantedGenes_sigpadj/only_earlyStages")
+  dir.create("images/dif_exp/space_subsets/mostDEGenes_allpadj")
+  dir.create("images/dif_exp/space_subsets/mostDEGenes_allpadj/only_earlyStages")
+  dir.create("images/dif_exp/space_subsets/mostDEGenes_sigpadj")
+  dir.create("images/dif_exp/space_subsets/mostDEGenes_sigpadj/only_earlyStages")
+
+  dir.create("images/cor_network")
+  dir.create("images/cor_network/proof_of_method")
+  dir.create("images/cor_network/time_subsets")
+  dir.create("images/cor_network/space_subsets")
+  
+  dir.create("images/Down")
+}
+```
+
+# Data wrangling {style="background-color: #051650; color: #FFF685;  padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+
+### Data importation {style="background-color: #0049b7; color: #FFF685;  padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 ```{r}
 
@@ -62,13 +136,13 @@ patients_mutations <- read.csv("https://raw.githubusercontent.com/pedrohpro/RNAs
 down_complement <- paste(genes_down$ensembl_id, collapse = "|")
 
 # Checking genes
-enriched_genes <- genes_asd$genes_asdnterest
+enriched_genes <- genes_asd$genesofinterest
 any(duplicated(enriched_genes))
 genes_asd$pathway <- factor(genes_asd$pathway)
 summary(genes_asd$pathway)
 ```
 
-### Removing samples {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+### Removing samples {style="background-color: #0049b7; color: #FFF685;  padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 Here we remove outliers and problematic samples from the counts matrix.
 
@@ -80,7 +154,7 @@ counts <- select(counts, -c("HSB154.MSC","HSB96.MSC","HSB97.MSC","HSB98.MSC"))
 
 ```
 
-### Cleaning counts matrix {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+### Cleaning counts matrix {style="background-color: #0049b7; color: #FFF685;  padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 ```{r}
 # Excluding genes with low counts (less than 50 in all samples combined)
@@ -102,7 +176,7 @@ rownames(counts) <- gsub("\\|", "-", rownames(counts))
 #rownames(counts) <- substring(rownames(counts), 16)
 ```
 
-### Adjusting donor metadata data frame {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+### Adjusting donor metadata data frame {style="background-color: #0049b7; color: #FFF685;  padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 ```{r}
 # Changing all columns to character (Necessary step to create metadata dataframe)
@@ -133,7 +207,7 @@ meta_donor$Donor <- rownames(meta_donor)
 names(meta_donor)[names(meta_donor) == "Sequencing.Site"] <- "SequencingSite"
 ```
 
-### Creating sample metadata data frame {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+### Creating sample metadata data frame {style="background-color: #0049b7; color: #FFF685;  padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 ```{r}
 
@@ -156,7 +230,7 @@ meta$Age <- factor(meta$Age, levels = c("8PCW","9PCW","12PCW","13PCW","16PCW","1
 
 ```
 
-### Grouping periods {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+### Grouping periods {style="background-color: #0049b7; color: #FFF685;  padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 This step was done after analyzing the dimensionality reduction techniques. Each group was defined based on biological and statistical evidence. The paper will explain it in detail.
 
@@ -185,7 +259,7 @@ meta <- meta %>%
 meta$GroupedAge <- factor(meta$GroupedAge, levels = c("8_12PCW", "13_19PCW", "20_40PCW", "0_2YEARS", "3_10YEARS", "11_22YEARS", "23_40YEARS"))
 ```
 
-### Grouping regions {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+### Grouping regions {style="background-color: #0049b7; color: #FFF685;  padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 This step was done after analyzing the dimensionality reduction techniques. Each group was defined based on biological and statistical evidence. The paper will explain it in detail.
 
@@ -205,10 +279,10 @@ meta <- meta %>%
   )
 
 # re-leveling all the factors so that when plotting the data, such as in a PCA, it looks better ordered
-meta$GroupedRegion <- factor(meta$GroupedRegion, levels = c("Frontal_lobe", "Parietal_lobe", "Temporal_lobe", "Occipital_lobe", "Limbic_system", "Cerebellum"))
+meta$GroupedRegion <- factor(meta$GroupedRegion, levels = c("Frontal_lobe", "Parietal_lobe", "Temporal_lobe", "Occipital_lobe", "Limbic_system", "Cerebellum", "Ganglionic_eminence"))
 ```
 
-### Final touch-ups on metadata {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+### Final touch-ups on metadata {style="background-color: #0049b7; color: #FFF685;  padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 ```{r}
 # Reorganizing the metadata columns
@@ -231,7 +305,7 @@ all(colnames(counts) %in% rownames(meta)) # mesma nome
 all(colnames(counts) == rownames(meta)) # mesma ordem
 ```
 
-#### Creating time subsets {style="background-color: #449944; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+### Creating time subsets {style="background-color: #0049b7; color: #FFF685;  padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 Note: Because GroupedAge has been leveled when factored, both lists: time_countsubs and time_metasubs will be in the same subsets order. Meaning that time_countsubs\[\[1\]\] and time_metasubs\[\[1\]\] will both correspond to "8-12PCW", so on and so forth.
 
@@ -266,7 +340,7 @@ time_metasubs <- map(time_metasubs, ~ mutate_all(.x, factor))
 
 ```
 
-#### Creating space subsets {style="background-color: #449944; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+### Creating space subsets {style="background-color: #0049b7; color: #FFF685;  padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 **Note:** Region column was factored with levels in alphabetical order The Ganglionic_eminence subset is not created because there are only samples from this region in one GroupedAge subset and, therefore, you cant do DE analysis comparing periods. Moreover, there are only 6 samples so you cant do WGCNA either.
 
@@ -286,7 +360,7 @@ space_metasubs <- map(space_metasubs, ~ mutate_all(.x, factor))
 
 ```
 
-#### Verifying if all subsets are correct {style="background-color: #449944; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+### Verifying if all subsets are correct {style="background-color: #0049b7; color: #FFF685;  padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 Correct as in: meta and counts have the same samples and in the same order.
 
@@ -302,79 +376,9 @@ print(paste0("Space meta and counts subsets have the same (rownames and colnames
 
 ```
 
-# Exploratory analysis {style="background-color: #0049b7; color: #FFF685;  padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+# Exploratory analysis {style="background-color: #1e4620; color: #FFF685;  padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
-#### Creating directories {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
-
-```{r}
-if (!file.exists("images")){
-  dir.create("images")
-  dir.create("images/sample_distribution")
-  
-  dir.create("images/expl_analysis")
-  dir.create("images/expl_analysis/all_samples")
-  dir.create("images/expl_analysis/all_samples/pre_batch")
-  dir.create("images/expl_analysis/all_samples/pre_batch/PCAs")
-  dir.create("images/expl_analysis/all_samples/pre_batch/UMAPs")
-  dir.create("images/expl_analysis/all_samples/adj_batch")
-  dir.create("images/expl_analysis/all_samples/adj_batch/PCAs")
-  dir.create("images/expl_analysis/all_samples/adj_batch/UMAPs")
-  
-  dir.create("images/expl_analysis/time_subsets")
-  dir.create("images/expl_analysis/time_subsets/pre_batch")
-  dir.create("images/expl_analysis/time_subsets/pre_batch/PCAs")
-  dir.create("images/expl_analysis/time_subsets/pre_batch/UMAPs")
-  dir.create("images/expl_analysis/time_subsets/pre_batch/BatchVsDesVar")
-  dir.create("images/expl_analysis/time_subsets/adj_batch")
-  dir.create("images/expl_analysis/time_subsets/adj_batch/PCAs")
-  dir.create("images/expl_analysis/time_subsets/adj_batch/UMAPs")
-  dir.create("images/expl_analysis/time_subsets/adj_batch/Cooks")
-  dir.create("images/expl_analysis/time_subsets/adj_batch/mdp")
-  
-  dir.create("images/expl_analysis/space_subsets")
-  dir.create("images/expl_analysis/space_subsets/pre_batch")
-  dir.create("images/expl_analysis/space_subsets/pre_batch/PCAs")
-  dir.create("images/expl_analysis/space_subsets/pre_batch/UMAPs")
-  dir.create("images/expl_analysis/space_subsets/adj_batch")
-  dir.create("images/expl_analysis/space_subsets/adj_batch/PCAs")
-  dir.create("images/expl_analysis/space_subsets/adj_batch/UMAPs")
-  dir.create("images/expl_analysis/space_subsets/adj_batch/Cooks")
-  dir.create("images/expl_analysis/space_subsets/adj_batch/mdp")
-  
-  dir.create("images/dif_exp")
-  dir.create("images/dif_exp/proof_of_method")
-  
-  dir.create("images/dif_exp/time_subsets")
-  dir.create("images/dif_exp/time_subsets/wantedGenes_allpadj")
-  dir.create("images/dif_exp/time_subsets/wantedGenes_allpadj/only_cortex")
-  dir.create("images/dif_exp/time_subsets/wantedGenes_sigpadj")
-  dir.create("images/dif_exp/time_subsets/wantedGenes_sigpadj/only_cortex")
-  dir.create("images/dif_exp/time_subsets/mostDEGenes_allpadj")
-  dir.create("images/dif_exp/time_subsets/mostDEGenes_allpadj/only_cortex")
-  dir.create("images/dif_exp/time_subsets/mostDEGenes_sigpadj")
-  dir.create("images/dif_exp/time_subsets/mostDEGenes_sigpadj/only_cortex")
-  
-  dir.create("images/dif_exp/space_subsets")
-  dir.create("images/dif_exp/space_subsets/wantedGenes_allpadj")
-  dir.create("images/dif_exp/space_subsets/wantedGenes_allpadj/only_earlyStages")
-  dir.create("images/dif_exp/space_subsets/wantedGenes_sigpadj")
-  dir.create("images/dif_exp/space_subsets/wantedGenes_sigpadj/only_earlyStages")
-  dir.create("images/dif_exp/space_subsets/mostDEGenes_allpadj")
-  dir.create("images/dif_exp/space_subsets/mostDEGenes_allpadj/only_earlyStages")
-  dir.create("images/dif_exp/space_subsets/mostDEGenes_sigpadj")
-  dir.create("images/dif_exp/space_subsets/mostDEGenes_sigpadj/only_earlyStages")
-
-  dir.create("images/cor_network")
-  dir.create("images/cor_network/proof_of_method")
-  dir.create("images/cor_network/time_subsets")
-  dir.create("images/cor_network/space_subsets")
-  
-  dir.create("images/Down")
-}
-
-```
-
-### Data distribution {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+### Data distribution function {style="background-color: #449944; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 This is a very important step to guarantee the (N=) for each comparison. You can put on the x and y axis any two variables (columns) from the sample metadata data frame.
 
@@ -383,6 +387,10 @@ e.g.: for every grouped age how many samples there are for every grouped region.
 ```{r}
 
 sampDistri_func <- function(myMeta, xaxis, yaxis, myFileName){
+  if (yaxis == "alone"){
+    myMeta$alone <- NA
+  }
+  
   # Creates long format dataframe with number of samples per xaxis and yaxis to do a heatmap
   long_df <- myMeta %>%
     group_by(!!sym(yaxis), !!sym(xaxis)) %>%
@@ -416,30 +424,75 @@ sampDistri_func <- function(myMeta, xaxis, yaxis, myFileName){
   ggsave(fileNamePath, width = 30, height = 20)
 }
 
+```
+
+##### Plotting {style="background-color: #abf7b1; color: #777700; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px;"}
+
+```{r}
+
 sampDistri_func(meta, "Age","Region", "Age_Region.png")
-sampDistri_func(meta, "GroupedAge","Region", "GroupedAge_Region.png")
 sampDistri_func(meta, "Age","GroupedRegion", "Age_GroupedRegion.png")
-sampDistri_func(meta, "GroupedAge","GroupedRegion", "GroupedAge_GroupedRegion.png")
 
-# DESCOBRIR OUTRO JEITO DE FAZER ISSO SEM AuxCol
-#sampDistri_func(meta, "GroupedAge","AuxCol", "GroupedAge_AuxCol.png")
-#sampDistri_func(meta, "AuxCol","GroupedRegion", "AuxCol_GroupedRegion.png")
+# GroupedAge against other variables
+for (i in discard(c(colnames(meta), "alone"), ~ .x == "GroupedAge")){
+  sampDistri_func(meta, "GroupedAge", i, paste0("GroupedAge_", i, ".png"))
+}
 
-sampDistri_func(meta, "GroupedAge","pH", "GroupedAge_pH.png")
-sampDistri_func(meta, "GroupedAge","PMI", "GroupedAge_pH.png")
-sampDistri_func(meta, "GroupedAge","RIN", "GroupedAge_pH.png")
-
-sampDistri_func(meta, "GroupedRegion","pH", "GroupedRegion_pH.png")
-sampDistri_func(meta, "GroupedRegion","PMI", "GroupedRegion_pH.png")
-sampDistri_func(meta, "GroupedRegion","RIN", "GroupedRegion_pH.png")
+# GroupedRegion against other variables
+for (i in discard(c(colnames(meta), "alone"), ~ .x %in% c("GroupedAge", "Age", "GroupedRegion"))){
+  sampDistri_func(meta, "GroupedRegion", i, paste0("GroupedRegion_", i, ".png"))
+}
 
 ```
 
-### DR - all samples - not adjusted for batch effect {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+### Correcting batch effect {style="background-color: #449944; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
-DR = Dimensionality reduction.
+This section was placed here after verifying there was indeed a batch effect to be corrected using DR and boxplots.
+
+```{r}
+
+adj_counts <- ComBat_seq(as.matrix(counts), batch = meta$pH, group=NULL)
+#adj_counts <- ComBat_seq(as.matrix(counts), batch = meta$pH, group=NULL, covar_mod = meta[,c("Age","Region")])
+#can I run ComBat_seq function multiple times to remove more than one batch effect?
+```
+
+##### Creating batch adjusted time and space counts subsets {style="background-color: #abf7b1; color: #777700; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px;"}
+
+Should I correct the batch effect for all samples and them divide them OR divide them and then correct for batch effect? (still deciding the best method)
+
+```{r}
+time_adjcts <- list() 
+for (i in levels(meta$GroupedAge)){   
+  subset <- adj_counts[,grepl(i, meta$GroupedAge)]   
+  time_adjcts <- append(time_adjcts, list(as.data.frame(subset))) 
+}  
+# No subset for ganglionic eminence because there is only one period with those samples; thus, no differential expression analysis can be performed. 
+space_adjcts <- list() 
+for (i in levels(meta$GroupedRegion)[!grepl("Ganglionic_eminence", levels(meta$GroupedRegion))]){   
+  subset <- adj_counts[,grepl(i, meta$GroupedRegion)]   
+  space_adjcts <- append(space_adjcts, list(as.data.frame(subset))) 
+}
+```
+
+##### Verifying if all batch adjusted subsets are correctly ordered {style="background-color: #abf7b1; color: #777700; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px;"}
+
+```{r}
+for (i in 1:length(time_metasubs)){   
+  print(all(colnames(time_adjcts[[i]]) %in% rownames(time_metasubs[[i]]))) # same names   
+  print(all(colnames(time_adjcts[[i]]) == rownames(time_metasubs[[i]]))) # same order 
+}  
+
+for (i in 1:length(space_metasubs)){   
+  print(all(colnames(space_adjcts[[i]]) %in% rownames(space_metasubs[[i]]))) # same names   
+  print(all(colnames(space_adjcts[[i]]) == rownames(space_metasubs[[i]]))) # same order 
+}
+```
+
+### Dimensionality reduction {style="background-color: #449944; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 The idea is: the sample metadata will show all variables (such as region, age, pH, sex, ethnicity, etc.) that define or could define the gene expression profile of that sample. A good study design controls for all the variables that are not of interest for that study and only let the variables of interest control the expression profile. However, sometimes that is not done or its impossible to do, such as sex or ethnicity. Thus, by dimensionality reduction we can see if the variables (which are not of interest) have an impact in the expression profile of different samples in such way that they cluster together. This is a batch effect and it can be corrected statistically.
+
+##### All samples - with batch effect {style="background-color: #abf7b1; color: #777700; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px;"}
 
 ```{r}
 
@@ -495,16 +548,7 @@ for (i in colnames(meta)){
 
 ```
 
-#### Correcting batch effect {style="background-color: #449944; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
-
-```{r}
-adj_counts <- ComBat_seq(as.matrix(counts), batch = meta$pH, group=NULL)
-#adj_counts <- ComBat_seq(as.matrix(counts), batch = meta$pH, group=NULL, covar_mod = meta[,c("Age","Region")])
-#can I run ComBat_seq function multiple times to remove more than one batch effect?
-
-```
-
-### DR - all samples - adjusted for batch effect {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+##### All samples - without batch effect {style="background-color: #abf7b1; color: #777700; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px;"}
 
 ```{r}
 # Using Seurat just for exploratory analysis
@@ -547,40 +591,7 @@ for (i in colnames(meta)){
 
 ```
 
-#### Creating batch adjusted time and space counts subsets {style="background-color: #449944; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px;"}
-
-Should I correct the batch effect for all samples and them divide them OR divide them and then correct for batch effect? (still deciding the best method)
-
-```{r}
-time_adjcts <- list()
-for (i in levels(meta$GroupedAge)){
-  subset <- adj_counts[,grepl(i, meta$GroupedAge)]
-  time_adjcts <- append(time_adjcts, list(as.data.frame(subset)))
-}
-
-# No subset for ganglionic eminence because there is only one period with those samples; thus, no differential expression analysis can be performed.
-space_adjcts <- list()
-for (i in levels(meta$GroupedRegion)[!grepl("Ganglionic_eminence", levels(meta$GroupedRegion))]){
-  subset <- adj_counts[,grepl(i, meta$GroupedRegion)]
-  space_adjcts <- append(space_adjcts, list(as.data.frame(subset)))
-}
-```
-
-#### Verifying if all batch adjusted subsets are correct {style="background-color: #449944; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px;"}
-
-```{r}
-for (i in 1:length(time_metasubs)){
-  print(all(colnames(time_adjcts[[i]]) %in% rownames(time_metasubs[[i]]))) # same names
-  print(all(colnames(time_adjcts[[i]]) == rownames(time_metasubs[[i]]))) # same order
-}
-
-for (i in 1:length(space_metasubs)){
-  print(all(colnames(space_adjcts[[i]]) %in% rownames(space_metasubs[[i]]))) # same names
-  print(all(colnames(space_adjcts[[i]]) == rownames(space_metasubs[[i]]))) # same order
-}
-```
-
-### DR - Time - not adjusted for batch effect {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px;"}
+##### Time - with batch effect {style="background-color: #abf7b1; color: #777700; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px;"}
 
 All PCAs and UMAPs for all columns of the meta data for all GroupedAge subsets.
 
@@ -637,16 +648,7 @@ for (i in 1:length(time_metasubs)){
 }
 ```
 
-#### Comparing batch effect and desired variable (region) {style="background-color: #449944; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px;"}
-
-```{r}
-# Choosen genes
-View(counts[grepl("CACNA1H|RELN", rownames(counts)),])
-
-
-```
-
-### DR - Time - adjusted for batch effect {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+##### Time - without batch effect {style="background-color: #abf7b1; color: #777700; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px;"}
 
 ```{r}
 
@@ -701,7 +703,115 @@ for (i in 1:length(time_metasubs)){
 }
 ```
 
-### Cook's - Time- adjusted for batch effect {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+##### Space - with batch effect {style="background-color: #abf7b1; color: #777700; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px;"}
+
+```{r}
+
+for (i in 1:length(space_metasubs)){
+  
+  # Creating directories for each Group (inside PCAs)
+  GR <- levels(space_metasubs[[i]]$GroupedRegion)[1]
+  dirnamePCA <- paste0("images/expl_analysis/space_subsets/pre_batch/PCAs/", GR)
+  if (!file.exists(dirnamePCA)){dir.create(dirnamePCA)}
+  dirnameUMAP <- paste0("images/expl_analysis/space_subsets/pre_batch/UMAPs/", GR)
+  if (!file.exists(dirnameUMAP)){dir.create(dirnameUMAP)}
+  
+  pbmc <- CreateSeuratObject(counts = space_countsubs[[i]])
+  pbmc <- AddMetaData(pbmc, space_metasubs[[i]])
+  pbmc <- NormalizeData(pbmc)
+  pbmc <- ScaleData(pbmc, features = rownames(pbmc))
+  pbmc <- FindVariableFeatures(pbmc, selection.method = "vst", nfeatures = 2000)
+  
+  # maybe too manny npcs, but it is ok. It will only increase computation time. Né?
+  pbmc <- RunPCA(pbmc, features = VariableFeatures(pbmc), npcs = ncol(space_countsubs[[i]])-1)
+  
+  for (j in colnames(space_metasubs[[i]])){
+    title <- paste0("PCA with samples from ", GR)
+    
+    pcas <- DimPlot(pbmc, reduction = "pca", group.by = c(j), pt.size = 3) +
+      ggtitle(title) +
+      labs(color = j) +
+      coord_fixed()
+    
+    filename <- paste0("PCA_", GR, "_", j, ".png")
+    fileNamePath <- file.path(dirnamePCA, filename)
+    ggsave(fileNamePath, plot = pcas, width = 10, height = 10)
+  }
+  
+  
+  pbmc <- RunUMAP(pbmc, dims = 1:20, n.neighbors = 20, min.dist = 0.5)
+
+  for (j in colnames(meta)){
+    title <- paste0("UMAP with samples from ", GR)
+    
+    umaps <- DimPlot(pbmc, reduction = "umap", group.by = c(j), pt.size = 3) +
+      ggtitle(title) +
+      labs(color = j) +
+      coord_fixed()
+    
+    filename <- paste0("UMAP_", GR, "_", j, ".png")
+    fileNamePath <- file.path(dirnameUMAP, filename)
+    ggsave(fileNamePath, plot = umaps, width = 10, height = 10)
+  }
+}
+```
+
+##### Space - without batch effect {style="background-color: #abf7b1; color: #777700; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px;"}
+
+```{r}
+
+for (i in 1:length(space_metasubs)){
+  
+  # Creating directories for each Group
+  GR <- levels(space_metasubs[[i]]$GroupedRegion)[1]
+  dirnamePCA <- paste0("images/expl_analysis/space_subsets/adj_batch/PCAs/", GR)
+  if (!file.exists(dirnamePCA)){dir.create(dirnamePCA)}
+  dirnameUMAP <- paste0("images/expl_analysis/space_subsets/adj_batch/UMAPs/", GR)
+  if (!file.exists(dirnameUMAP)){dir.create(dirnameUMAP)}
+  
+  pbmc <- CreateSeuratObject(counts = space_adjcts[[i]])
+  pbmc <- AddMetaData(pbmc, space_metasubs[[i]])
+  pbmc <- NormalizeData(pbmc)
+  pbmc <- ScaleData(pbmc, features = rownames(pbmc))
+  pbmc <- FindVariableFeatures(pbmc, selection.method = "vst", nfeatures = 2000)
+  
+  # maybe too manny npcs, but it is ok. It will only increase computation time. Né?
+  pbmc <- RunPCA(pbmc, features = VariableFeatures(pbmc), npcs = ncol(space_adjcts[[i]])-1)
+  
+  for (j in colnames(space_metasubs[[i]])){
+    title <- paste0("PCA with samples from ", GR)
+    
+    pcas <- DimPlot(pbmc, reduction = "pca", group.by = c(j), pt.size = 3) +
+      ggtitle(title) +
+      labs(color = j) +
+      coord_fixed()
+    
+    filename <- paste0("PCA_", GR, "_", j, ".png")
+    fileNamePath <- file.path(dirnamePCA, filename)
+    ggsave(fileNamePath, plot = pcas, width = 10, height = 10)
+  }
+  
+  
+  pbmc <- RunUMAP(pbmc, dims = 1:20, n.neighbors = 20, min.dist = 0.5)
+
+  for (j in colnames(meta)){
+    title <- paste0("UMAP with samples from ", GR, "\n(adjusted for batch effect)")
+    
+    umaps <- DimPlot(pbmc, reduction = "umap", group.by = c(j), pt.size = 3) +
+      ggtitle(title) +
+      labs(color = j) +
+      coord_fixed()
+    
+    filename <- paste0("UMAP_", GR, "_", j, ".png")
+    fileNamePath <- file.path(dirnameUMAP, filename)
+    ggsave(fileNamePath, plot = umaps, width = 10, height = 10)
+  }
+}
+```
+
+### Cook's distance {style="background-color: #449944; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+
+##### Time - without batch effect {style="background-color: #abf7b1; color: #777700; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px;"}
 
 ```{r}
 
@@ -738,7 +848,41 @@ for (i in 1:length(time_metasubs)){
 }
 ```
 
-### MDP - Time- adjusted for batch effect {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+##### Space - without batch effect {style="background-color: #abf7b1; color: #777700; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px;"}
+
+```{r}
+
+for (i in 1:length(space_metasubs)){
+  # Running deseq
+  dds <- DESeqDataSetFromMatrix(countData = space_adjcts[[i]], colData = space_metasubs[[i]], design = ~1)
+  dds <- DESeq(dds)
+  
+  # Getting the name of the grouped period and defining title
+  GR <- levels(space_metasubs[[i]]$GroupedRegion)[1]
+  title <- paste0("Cook's distance for samples from the ", GR)
+  
+  # Defining file name and directory to save
+  filename <- paste0("Cooks_", GR, ".png")
+  fileNamePath <- file.path("images/expl_analysis/space_subsets/adj_batch/Cooks", filename)
+  
+  # Defining width of boxplot based on number of samples in that period (subset)
+  widthPerBox <- 26  #testing showed this to be a good number to visualize
+  widthImage <- nrow(space_metasubs[[i]]) * widthPerBox
+  
+  # Open image
+  png(file = fileNamePath, width = widthImage, height = 600)
+  # Plot boxplot
+  par(mar=c(8,5,2,2))
+  boxplot(log10(assays(dds)[["cooks"]]), range=0, las=2)
+  title(main = title, line = 0.5)
+  # Close 
+  dev.off()
+}
+```
+
+### Molecular degree perturbation {style="background-color: #449944; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+
+##### Time - without batch effect {style="background-color: #abf7b1; color: #777700; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px;"}
 
 ```{r}
 
@@ -795,145 +939,7 @@ for (i in 1:length(time_metasubs)){
 }
 ```
 
-### DR - Space - not adjusted for batch effect {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px;"}
-
-```{r}
-
-for (i in 1:length(space_metasubs)){
-  
-  # Creating directories for each Group (inside PCAs)
-  GR <- levels(space_metasubs[[i]]$GroupedRegion)[1]
-  dirnamePCA <- paste0("images/expl_analysis/space_subsets/pre_batch/PCAs/", GR)
-  if (!file.exists(dirnamePCA)){dir.create(dirnamePCA)}
-  dirnameUMAP <- paste0("images/expl_analysis/space_subsets/pre_batch/UMAPs/", GR)
-  if (!file.exists(dirnameUMAP)){dir.create(dirnameUMAP)}
-  
-  pbmc <- CreateSeuratObject(counts = space_countsubs[[i]])
-  pbmc <- AddMetaData(pbmc, space_metasubs[[i]])
-  pbmc <- NormalizeData(pbmc)
-  pbmc <- ScaleData(pbmc, features = rownames(pbmc))
-  pbmc <- FindVariableFeatures(pbmc, selection.method = "vst", nfeatures = 2000)
-  
-  # maybe too manny npcs, but it is ok. It will only increase computation time. Né?
-  pbmc <- RunPCA(pbmc, features = VariableFeatures(pbmc), npcs = ncol(space_countsubs[[i]])-1)
-  
-  for (j in colnames(space_metasubs[[i]])){
-    title <- paste0("PCA with samples from ", GR)
-    
-    pcas <- DimPlot(pbmc, reduction = "pca", group.by = c(j), pt.size = 3) +
-      ggtitle(title) +
-      labs(color = j) +
-      coord_fixed()
-    
-    filename <- paste0("PCA_", GR, "_", j, ".png")
-    fileNamePath <- file.path(dirnamePCA, filename)
-    ggsave(fileNamePath, plot = pcas, width = 10, height = 10)
-  }
-  
-  
-  pbmc <- RunUMAP(pbmc, dims = 1:20, n.neighbors = 20, min.dist = 0.5)
-
-  for (j in colnames(meta)){
-    title <- paste0("UMAP with samples from ", GR)
-    
-    umaps <- DimPlot(pbmc, reduction = "umap", group.by = c(j), pt.size = 3) +
-      ggtitle(title) +
-      labs(color = j) +
-      coord_fixed()
-    
-    filename <- paste0("UMAP_", GR, "_", j, ".png")
-    fileNamePath <- file.path(dirnameUMAP, filename)
-    ggsave(fileNamePath, plot = umaps, width = 10, height = 10)
-  }
-}
-```
-
-### DR - Space - adjusted for batch effect {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px;"}
-
-```{r}
-
-for (i in 1:length(space_metasubs)){
-  
-  # Creating directories for each Group
-  GR <- levels(space_metasubs[[i]]$GroupedRegion)[1]
-  dirnamePCA <- paste0("images/expl_analysis/space_subsets/adj_batch/PCAs/", GR)
-  if (!file.exists(dirnamePCA)){dir.create(dirnamePCA)}
-  dirnameUMAP <- paste0("images/expl_analysis/space_subsets/adj_batch/UMAPs/", GR)
-  if (!file.exists(dirnameUMAP)){dir.create(dirnameUMAP)}
-  
-  pbmc <- CreateSeuratObject(counts = space_adjcts[[i]])
-  pbmc <- AddMetaData(pbmc, space_metasubs[[i]])
-  pbmc <- NormalizeData(pbmc)
-  pbmc <- ScaleData(pbmc, features = rownames(pbmc))
-  pbmc <- FindVariableFeatures(pbmc, selection.method = "vst", nfeatures = 2000)
-  
-  # maybe too manny npcs, but it is ok. It will only increase computation time. Né?
-  pbmc <- RunPCA(pbmc, features = VariableFeatures(pbmc), npcs = ncol(space_adjcts[[i]])-1)
-  
-  for (j in colnames(space_metasubs[[i]])){
-    title <- paste0("PCA with samples from ", GR)
-    
-    pcas <- DimPlot(pbmc, reduction = "pca", group.by = c(j), pt.size = 3) +
-      ggtitle(title) +
-      labs(color = j) +
-      coord_fixed()
-    
-    filename <- paste0("PCA_", GR, "_", j, ".png")
-    fileNamePath <- file.path(dirnamePCA, filename)
-    ggsave(fileNamePath, plot = pcas, width = 10, height = 10)
-  }
-  
-  
-  pbmc <- RunUMAP(pbmc, dims = 1:20, n.neighbors = 20, min.dist = 0.5)
-
-  for (j in colnames(meta)){
-    title <- paste0("UMAP with samples from ", GR, "\n(adjusted for batch effect)")
-    
-    umaps <- DimPlot(pbmc, reduction = "umap", group.by = c(j), pt.size = 3) +
-      ggtitle(title) +
-      labs(color = j) +
-      coord_fixed()
-    
-    filename <- paste0("UMAP_", GR, "_", j, ".png")
-    fileNamePath <- file.path(dirnameUMAP, filename)
-    ggsave(fileNamePath, plot = umaps, width = 10, height = 10)
-  }
-}
-```
-
-### Cook's - Space- adjusted for batch effect {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
-
-```{r}
-
-for (i in 1:length(space_metasubs)){
-  # Running deseq
-  dds <- DESeqDataSetFromMatrix(countData = space_adjcts[[i]], colData = space_metasubs[[i]], design = ~1)
-  dds <- DESeq(dds)
-  
-  # Getting the name of the grouped period and defining title
-  GR <- levels(space_metasubs[[i]]$GroupedRegion)[1]
-  title <- paste0("Cook's distance for samples from the ", GR)
-  
-  # Defining file name and directory to save
-  filename <- paste0("Cooks_", GR, ".png")
-  fileNamePath <- file.path("images/expl_analysis/space_subsets/adj_batch/Cooks", filename)
-  
-  # Defining width of boxplot based on number of samples in that period (subset)
-  widthPerBox <- 26  #testing showed this to be a good number to visualize
-  widthImage <- nrow(space_metasubs[[i]]) * widthPerBox
-  
-  # Open image
-  png(file = fileNamePath, width = widthImage, height = 600)
-  # Plot boxplot
-  par(mar=c(8,5,2,2))
-  boxplot(log10(assays(dds)[["cooks"]]), range=0, las=2)
-  title(main = title, line = 0.5)
-  # Close 
-  dev.off()
-}
-```
-
-### MDP - Space - adjusted for batch effect {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+##### Space - without batch effect {style="background-color: #abf7b1; color: #777700; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px;"}
 
 ```{r}
 for (i in 1:length(space_metasubs)){
@@ -995,308 +1001,52 @@ for (i in 1:length(space_metasubs)){
 }
 ```
 
-# Gene co-expression network analysis {style="background-color: #0049b7; color: #FFF685;  padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+### Batch vs Desired Variable {style="background-color: #449944; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
-#### Time - Normalized counts matrix - adjusted for batch effect {style="background-color: #33AA33; color: #FFF685; padding-top: 7px;   padding-right: 7px;   padding-bottom: 7px;   padding-left: 7px"}
-
-Acredito que não seja uma boa ideia normalizar em 3 momentos diferentes (para a análise exploratória, para o deseq, e para o cemitool) com 2 ferramentas diferentes (seurat, deseq) a mesma matriz de contagens. PENSAR NUMA FORMA MELHOR!
-
-```{r}
-time_normbatchsubs <- list()  
-
-for (i in 1:length(time_adjcts)){
-  dds <- DESeqDataSetFromMatrix(countData = time_adjcts[[i]], colData = time_metasubs[[i]], design = ~1)
-  dds <- DESeq(dds)
-  vsd <- vst(dds, blind=FALSE)
-  mat <- as.data.frame(assay(vsd))
-  cts <- list(mat)
-
-  time_normbatchsubs <- append(time_normbatchsubs, cts)
-}
-```
-
-#### Space - Normalized counts matrix - adjusted for batch effect {style="background-color: #33AA33; color: #FFF685; padding-top: 7px;   padding-right: 7px;   padding-bottom: 7px;   padding-left: 7px"}
-
-Acredito que não seja uma boa ideia normalizar em 3 momentos diferentes (para a análise exploratória, para o deseq, e para o cemitool) com 2 ferramentas diferentes (seurat, deseq) a mesma matriz de contagens. PENSAR NUMA FORMA MELHOR!
-
-```{r}
-space_normbatchsubs <- list()  
-
-for (i in 1:length(space_adjcts)){
-  dds <- DESeqDataSetFromMatrix(countData = space_adjcts[[i]], colData = space_metasubs[[i]], design = ~1)
-  dds <- DESeq(dds)
-  vsd <- vst(dds, blind=FALSE)
-  mat <- as.data.frame(assay(vsd))
-  cts <- list(mat)
-
-  space_normbatchsubs <- append(space_normbatchsubs, cts)
-}
-```
-
-##### Proof of method {style="background-color: #FFFFFF; color: #000000; padding-top: 7px;   padding-right: 7px;   padding-bottom: 7px;   padding-left: 7px"}
+##### Time - with batch effect {style="background-color: #abf7b1; color: #777700; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px;"}
 
 ```{r}
 
-```
+# Just to verify the names and that there are no repetitions
+#View(time_adjcts[[1]][grepl("RELN|CACNA1H|RYR3", rownames(time_adjcts[[1]])),])
 
-### Time subsets {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+testing_genes <- c("RELN", "CACNA1H", "RYR3")
 
-```{r}
-
-time_modules <- list()
-
-for (i in 1:length(time_normbatchsubs)){
-  GA <- levels(time_metasubs[[i]]$GroupedAge)[1]
-  
-  cts <- time_normbatchsubs[[i]]
-  met <- time_metasubs[[i]]
-  
-  # Correct duplicated popular gene names
-  j = 0
-  while (any(duplicated(substring(rownames(cts), 17)))){
-    rownames(cts)[duplicated(substring(rownames(cts), 17))] <- paste0(rownames(cts)[duplicated(substring(rownames(cts), 17))], "-", intToUtf8(64 + j))
-    j = j + 1
-  }
-  rownames(cts) <- substring(rownames(cts), 17)
-  
-  # Sample annotation
-  met$SampleName <- rownames(met)
-  colnames(met)[colnames(met) == "GroupedRegion"] <- "Class"
-  sample_annot <- met[,c("SampleName", "Class")]
-  
-  # GMT
-  gmt_fname <- system.file("extdata", "pathways.gmt", package = "CEMiTool")
-  gmt_in <- read_gmt(gmt_fname)
-  
-  # Gene interactions     
-  int_fname <- system.file("extdata", "interactions.tsv", package = "CEMiTool")
-  int_df <- read.delim(int_fname)
-   
-  # Running CEMiTool
-  cem <- cemitool(expr = cts, 
-                  annot = sample_annot, 
-                  gmt = gmt_in, 
-                  interactions = int_df, 
-                  force_beta=TRUE, 
-                  filter=TRUE, 
-                  plot=TRUE, 
-                  verbose=TRUE,
-                  network_type = "signed"
-                  )
+for (i in 1:length(time_metasubs)){
+  for (k in testing_genes){
+    cts <- time_adjcts[[i]][grepl(k, rownames(time_adjcts[[i]])),]
+    met <- time_metasubs[[i]][,c("GroupedRegion","pH")]
+    met[,k] <- unlist(cts[1,])
     
-  # create report as html document
-  generate_report(cem, directory =  paste0("images/cor_network/time_subsets/", intToUtf8(64 + i), "_", GA,"_reports"))
-  
-  time_modules <- append(time_modules, list(as.data.frame(cem@module)))
-}
-```
-
-### Time - Modules {style="background-color: #33AA33; color: #FFF685; padding-top: 7px;   padding-right: 7px;   padding-bottom: 7px;   padding-left: 7px"}
-
-```{r}
-
-for (i in 1:length(time_modules)){
-  GA <- levels(time_metasubs[[i]]$GroupedAge)[1]
-
-  # Select only wanted genes/rows
-  searchGenes <- paste(enriched_genes, collapse = "|")
-  genIntMod <- time_modules[[i]][grepl(searchGenes, time_modules[[i]]$genes),]
-  
-  # Add pathway column (crazy loop hahaha)
-  genIntMod$pathway <- NA
-  while (anyNA(genIntMod$pathway)){
-    for (j in 1:length(genes_asd$genes_asdnterest)){
-      for (k in 1:length(genIntMod$genes)){
-        if (is.na(genIntMod[k,"pathway"]) & grepl(genes_asd[j,"genes_asdnterest"],genIntMod[k,"genes"])){
-          genIntMod[k,"pathway"] <- as.character(genes_asd[j,"pathway"])
-        }
-      }
-    }
-  }
-  
-  # IMPORTANT: factor "modules" and "pathway" columns
-  genIntMod$modules <- factor(genIntMod$modules)
-  genIntMod$pathway <- factor(genIntMod$pathway)
-  
-  # Calculate the number of genes for each module and pathway type combination
-  gene_counts <- genIntMod %>%
-    group_by(modules, pathway) %>%
-    summarise(gene_count = n()) %>%
-    group_by(modules)
-  
-  # Caculating modules with most genes
-  summarized_counts <- gene_counts %>%
-    group_by(modules) %>%
-    summarise(total_count = sum(gene_count)) %>%
-    arrange(desc(total_count))  # Arrange in descending order of total_count
-  
-  # Reorder the modules column based on the calculated sums
-  gene_counts$modules <- factor(gene_counts$modules, levels = summarized_counts$modules)
-  
-  # Define colors for pathway types
-  pathway_colors <- c("CALCIUM" = "#DA012D", "REELIN" = "#1E90FF", "mTOR" = "#32CD32", "OTHERS" = "gray")
-  
-  # Plot the bar graph
-  bar_plot <- ggplot(gene_counts, aes(x = modules, y = gene_count, fill = pathway)) +
-    geom_bar(stat = "identity", position = "stack") +
-    scale_fill_manual(values = pathway_colors) +
-    labs(title = paste0("Genes of interest in each module for ", GA),
-         x = "Module", y = "Gene Count",
-         fill = "Pathway Type") +
-    theme_minimal() +
-    theme(
-      plot.background = element_rect(fill = "white"),
-      panel.background = element_rect(fill = "white"),
-      panel.grid = element_blank(),
-      text = element_text(size = 22)
-    ) + 
-    geom_text(aes(label = gene_count), position = position_stack(vjust = 0.5), color = "black", size = 10)
+    plot1 <- ggplot(met, aes(x = GroupedRegion, y = !!sym(k))) +
+      geom_boxplot()
     
-  # Saving plot
-  dirname <- paste0("images/cor_network/time_subsets/", intToUtf8(64 + i), "_", GA,"_reports")
-  filename <- paste0("modules_", GA, ".png")
-  fileNamePath <- file.path(dirname, filename)
-  ggsave(fileNamePath, plot = bar_plot, width = 10, height = 10)
-}
-
-### Pensar num jeito de visualizar quais são todos os genes de cada modulo e de que pathway eles são.
-```
-
-### Space subsets {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
-
-```{r}
-
-space_modules <- list()
-
-for (i in 1:length(space_normbatchsubs)){
-  GR <- levels(space_metasubs[[i]]$GroupedRegion)[1]
-  
-  cts <- space_normbatchsubs[[i]]
-  met <- space_metasubs[[i]]
-  
-  # Correct duplicated popular gene names
-  j = 0
-  while (any(duplicated(substring(rownames(cts), 17)))){
-    rownames(cts)[duplicated(substring(rownames(cts), 17))] <- paste0(rownames(cts)[duplicated(substring(rownames(cts), 17))], "-" ,intToUtf8(64 + j))
-    j = j + 1
-  }
-  rownames(cts) <- substring(rownames(cts), 17)
-  
-  # Sample annotation
-  met$SampleName <- rownames(met)
-  colnames(met)[colnames(met) == "GroupedAge"] <- "Class"
-  sample_annot <- met[,c("SampleName", "Class")]
-  
-  # GMT
-  gmt_fname <- system.file("extdata", "pathways.gmt", package = "CEMiTool")
-  gmt_in <- read_gmt(gmt_fname)
-  
-  # Gene interactions     
-  int_fname <- system.file("extdata", "interactions.tsv", package = "CEMiTool")
-  int_df <- read.delim(int_fname)
-   
-  # Running CEMiTool
-  cem <- cemitool(expr = cts, 
-                  annot = sample_annot, 
-                  gmt = gmt_in, 
-                  interactions = int_df, 
-                  force_beta=TRUE, 
-                  filter=TRUE, 
-                  plot=TRUE, 
-                  verbose=TRUE,
-                  network_type = "signed"
-                  )
+    plot2 <- ggplot(met, aes(x = pH, y = !!sym(k))) +
+      geom_boxplot()
     
-  # create report as html document
-  generate_report(cem, directory =  paste0("images/cor_network/space_subsets/", GR,"_reports"))
-  
-  space_modules <- append(space_modules, list(as.data.frame(cem@module)))
-  
-}
-```
-
-### Space - Modules {style="background-color: #33AA33; color: #FFF685; padding-top: 7px;   padding-right: 7px;   padding-bottom: 7px;   padding-left: 7px"}
-
-```{r}
-
-for (i in 1:length(space_modules)){
-  GR <- levels(space_metasubs[[i]]$GroupedRegion)[1]
-
-  # Select only wanted genes/rows
-  searchGenes <- paste(enriched_genes, collapse = "|")
-  genIntMod <- space_modules[[i]][grepl(searchGenes, space_modules[[i]]$genes),]
-  
-  # Add pathway column (crazy loop hahaha)
-  genIntMod$pathway <- NA
-  while (anyNA(genIntMod$pathway)){
-    for (j in 1:length(genes_asd$genes_asdnterest)){
-      for (k in 1:length(genIntMod$genes)){
-        if (is.na(genIntMod[k,"pathway"]) & grepl(genes_asd[j,"genes_asdnterest"],genIntMod[k,"genes"])){
-          genIntMod[k,"pathway"] <- as.character(genes_asd[j,"pathway"])
-        }
-      }
-    }
-  }
-  
-  # IMPORTANT: factor "modules" and "pathway" columns
-  genIntMod$modules <- factor(genIntMod$modules)
-  genIntMod$pathway <- factor(genIntMod$pathway)
-  
-  # Calculate the number of genes for each module and pathway type combination
-  gene_counts <- genIntMod %>%
-    group_by(modules, pathway) %>%
-    summarise(gene_count = n()) %>%
-    group_by(modules)
-  
-  # Caculating modules with most genes
-  summarized_counts <- gene_counts %>%
-    group_by(modules) %>%
-    summarise(total_count = sum(gene_count)) %>%
-    arrange(desc(total_count))  # Arrange in descending order of total_count
-  
-  # Reorder the modules column based on the calculated sums
-  gene_counts$modules <- factor(gene_counts$modules, levels = summarized_counts$modules)
-  
-  # Define colors for pathway types
-  pathway_colors <- c("CALCIUM" = "#DA012D", "REELIN" = "#1E90FF", "mTOR" = "#32CD32", "OTHERS" = "gray")
-  
-  # Plot the bar graph
-  bar_plot <- ggplot(gene_counts, aes(x = modules, y = gene_count, fill = pathway)) +
-    geom_bar(stat = "identity", position = "stack") +
-    scale_fill_manual(values = pathway_colors) +
-    labs(title = paste0("Genes of interest in each module for ", GR),
-         x = "Module", y = "Gene Count",
-         fill = "Pathway Type") +
-    theme_minimal() +
-    theme(
-      plot.background = element_rect(fill = "white"),
-      panel.background = element_rect(fill = "white"),
-      panel.grid = element_blank(),
-      text = element_text(size = 22)
-    ) + 
-    geom_text(aes(label = gene_count), position = position_stack(vjust = 0.5), color = "black", size = 10)
+    box_plot <- grid.arrange(plot1, plot2, nrow = 1)
     
-  # Saving plot
-  dirname <- paste0("images/cor_network/space_subsets/", GR, "_reports")
-  filename <- paste0("modules_", GR, ".png")
-  fileNamePath <- file.path(dirname, filename)
-  ggsave(fileNamePath, plot = bar_plot, width = 10, height = 10)
+    direc <- paste0("images/expl_analysis/time_subsets/pre_batch/BatchVsDesVar/", intToUtf8(64+i), "_", time_metasubs[[i]]$GroupedAge[1])
+    if(!file.exists(direc)){dir.create(direc)}
+    
+    ggsave(filename = paste0(direc, "/", k, ".png"), plot = box_plot, width = 15, height = 4, dpi = 300)
+    
+  }
 }
 
-### Pensar num jeito de visualizar quais são todos os genes de cada modulo e de que pathway eles são.
 ```
 
-# Differential expression analysis {style="background-color: #0049b7; color: #FFF685;  padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
-
-##### Proof of method {style="background-color: #FFFFFF; color: #000000; padding-top: 7px;   padding-right: 7px;   padding-bottom: 7px;   padding-left: 7px"}
+##### Space - with batch effect {style="background-color: #abf7b1; color: #777700; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px;"}
 
 ```{r}
 
 ```
+
+# Differential expression analysis {style="background-color: #ffba01; color: #FFF685;  padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 Deseq2 tutorial: <https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html>
 
-### Time - comparing all regions - Log2FoldChange and P-adj lists {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+### Time - comparing all regions - Log2FoldChange and P-adj lists {style="background-color: #ffe800; color: #555500; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 ```{r}
 
@@ -1330,7 +1080,7 @@ for (i in 1:length(time_metasubs)){
     #results <- as.data.frame(_______________)
     
     # Running DESeq2
-    dds <- DESeqDataSetFromMatrix(countData = cts, colData = met, design = ~ pH + Group)
+    dds <- DESeqDataSetFromMatrix(countData = cts, colData = met, design = ~ pH + Group) # pegar daqui a matriz normalizada para usar no cemitool depois?
     dds <- DESeq(dds)
     res <- results(dds)
     
@@ -1352,7 +1102,7 @@ for (i in 1:length(time_metasubs)){
 }
 ```
 
-### Time - comparing only cortex - Log2FoldChange and P-adj lists {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+### Time - comparing only cortex - Log2FoldChange and P-adj lists {style="background-color: #ffe800; color: #555500; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 One heat map for each age subset, comparing only cortex regions between each other. So that the gene expression profile of non-cortex regions (such as the cerebellum) doesn't mask the effect and variation of cortex regions.
 
@@ -1415,7 +1165,7 @@ for (i in 1:length(time_countsubs)){
 }
 ```
 
-### Space - comparing all ages - Log2FoldChange and P-adj lists {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+### Space - comparing all ages - Log2FoldChange and P-adj lists {style="background-color: #ffe800; color: #555500; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 One heat map for each space subset, comparing all ages between each other.
 
@@ -1473,7 +1223,7 @@ for (i in 1:length(space_metasubs)){
 }
 ```
 
-### Space - comparing only early stages - Log2FoldChange and P-adj lists {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+### Space - comparing only early stages - Log2FoldChange and P-adj lists {style="background-color: #ffe800; color: #555500; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 One heat map for each space subset, comparing only early developmental ages between each other. So that the gene expression of older regions doesn't mask more subtle variability in early developmental stages.
 
@@ -1481,7 +1231,7 @@ One heat map for each space subset, comparing only early developmental ages betw
 
 ```
 
-### Function to plot heatmaps {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+### Function to plot heatmaps {style="background-color: #ffe800; color: #555500; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 <https://jokergoo.github.io/ComplexHeatmap-reference/book/>
 
@@ -1557,7 +1307,7 @@ my_heatmaps <- function(type, list_log, list_padj, list_meta, wanted_genes, gene
 
 ```
 
-### Plotting Heatmaps {style="background-color: #F75990; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+### Plotting Heatmaps {style="background-color: #ffe800; color: #555500; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
 
 ```{r}
 my_heatmaps(type = "time", 
@@ -1690,4 +1440,301 @@ png(file = "images/dif_exp/mut_pacientes.png", width = 800, height = 500)
 draw(combined_ht)
 # Close 
 dev.off() 
+```
+
+### Proof of method {style="background-color: #ffe800; color: #555500; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+
+```{r}
+
+```
+
+# Gene co-expression network analysis {style="background-color: #990000; color: #FFF685;  padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+
+### Time - Normalized counts matrix - adjusted for batch effect {style="background-color: #cc0000; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+
+Acredito que não seja uma boa ideia normalizar em 3 momentos diferentes (para a análise exploratória, para o deseq, e para o cemitool) com 2 ferramentas diferentes (seurat, deseq) a mesma matriz de contagens. PENSAR NUMA FORMA MELHOR!
+
+```{r}
+time_normbatchsubs <- list()  
+
+for (i in 1:length(time_adjcts)){
+  dds <- DESeqDataSetFromMatrix(countData = time_adjcts[[i]], colData = time_metasubs[[i]], design = ~1)
+  dds <- DESeq(dds)
+  vsd <- vst(dds, blind=FALSE)
+  mat <- as.data.frame(assay(vsd))
+  cts <- list(mat)
+
+  time_normbatchsubs <- append(time_normbatchsubs, cts)
+}
+```
+
+### Space - Normalized counts matrix - adjusted for batch effect {style="background-color: #cc0000; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+
+Acredito que não seja uma boa ideia normalizar em 3 momentos diferentes (para a análise exploratória, para o deseq, e para o cemitool) com 2 ferramentas diferentes (seurat, deseq) a mesma matriz de contagens. PENSAR NUMA FORMA MELHOR!
+
+```{r}
+space_normbatchsubs <- list()  
+
+for (i in 1:length(space_adjcts)){
+  dds <- DESeqDataSetFromMatrix(countData = space_adjcts[[i]], colData = space_metasubs[[i]], design = ~1)
+  dds <- DESeq(dds)
+  vsd <- vst(dds, blind=FALSE)
+  mat <- as.data.frame(assay(vsd))
+  cts <- list(mat)
+
+  space_normbatchsubs <- append(space_normbatchsubs, cts)
+}
+```
+
+### Time subsets {style="background-color: #cc0000; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+
+```{r}
+
+time_modules <- list()
+
+for (i in 1:length(time_normbatchsubs)){
+  GA <- levels(time_metasubs[[i]]$GroupedAge)[1]
+  
+  cts <- time_normbatchsubs[[i]]
+  met <- time_metasubs[[i]]
+  
+  # Correct duplicated popular gene names
+  j = 0
+  while (any(duplicated(substring(rownames(cts), 17)))){
+    rownames(cts)[duplicated(substring(rownames(cts), 17))] <- paste0(rownames(cts)[duplicated(substring(rownames(cts), 17))], "-", intToUtf8(64 + j))
+    j = j + 1
+  }
+  rownames(cts) <- substring(rownames(cts), 17)
+  
+  # Sample annotation
+  met$SampleName <- rownames(met)
+  colnames(met)[colnames(met) == "GroupedRegion"] <- "Class"
+  sample_annot <- met[,c("SampleName", "Class")]
+  
+  # GMT
+  gmt_fname <- system.file("extdata", "pathways.gmt", package = "CEMiTool")
+  gmt_in <- read_gmt(gmt_fname)
+  
+  # Gene interactions     
+  int_fname <- system.file("extdata", "interactions.tsv", package = "CEMiTool")
+  int_df <- read.delim(int_fname)
+   
+  # Running CEMiTool
+  cem <- cemitool(expr = cts, 
+                  annot = sample_annot, 
+                  gmt = gmt_in, 
+                  interactions = int_df, 
+                  force_beta=TRUE, 
+                  filter=TRUE, 
+                  plot=TRUE, 
+                  verbose=TRUE,
+                  network_type = "signed"
+                  )
+    
+  # create report as html document
+  generate_report(cem, directory =  paste0("images/cor_network/time_subsets/", intToUtf8(64 + i), "_", GA,"_reports"))
+  
+  time_modules <- append(time_modules, list(as.data.frame(cem@module)))
+}
+```
+
+### Time - Modules {style="background-color: #cc0000; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+
+```{r}
+
+for (i in 1:length(time_modules)){
+  GA <- levels(time_metasubs[[i]]$GroupedAge)[1]
+
+  # Select only wanted genes/rows
+  searchGenes <- paste(enriched_genes, collapse = "|")
+  genIntMod <- time_modules[[i]][grepl(searchGenes, time_modules[[i]]$genes),]
+  
+  # Add pathway column (crazy loop hahaha)
+  genIntMod$pathway <- NA
+  while (anyNA(genIntMod$pathway)){
+    for (j in 1:length(genes_asd$genes_asdnterest)){
+      for (k in 1:length(genIntMod$genes)){
+        if (is.na(genIntMod[k,"pathway"]) & grepl(genes_asd[j,"genes_asdnterest"],genIntMod[k,"genes"])){
+          genIntMod[k,"pathway"] <- as.character(genes_asd[j,"pathway"])
+        }
+      }
+    }
+  }
+  
+  # IMPORTANT: factor "modules" and "pathway" columns
+  genIntMod$modules <- factor(genIntMod$modules)
+  genIntMod$pathway <- factor(genIntMod$pathway)
+  
+  # Calculate the number of genes for each module and pathway type combination
+  gene_counts <- genIntMod %>%
+    group_by(modules, pathway) %>%
+    summarise(gene_count = n()) %>%
+    group_by(modules)
+  
+  # Caculating modules with most genes
+  summarized_counts <- gene_counts %>%
+    group_by(modules) %>%
+    summarise(total_count = sum(gene_count)) %>%
+    arrange(desc(total_count))  # Arrange in descending order of total_count
+  
+  # Reorder the modules column based on the calculated sums
+  gene_counts$modules <- factor(gene_counts$modules, levels = summarized_counts$modules)
+  
+  # Define colors for pathway types
+  pathway_colors <- c("CALCIUM" = "#DA012D", "REELIN" = "#1E90FF", "mTOR" = "#32CD32", "OTHERS" = "gray")
+  
+  # Plot the bar graph
+  bar_plot <- ggplot(gene_counts, aes(x = modules, y = gene_count, fill = pathway)) +
+    geom_bar(stat = "identity", position = "stack") +
+    scale_fill_manual(values = pathway_colors) +
+    labs(title = paste0("Genes of interest in each module for ", GA),
+         x = "Module", y = "Gene Count",
+         fill = "Pathway Type") +
+    theme_minimal() +
+    theme(
+      plot.background = element_rect(fill = "white"),
+      panel.background = element_rect(fill = "white"),
+      panel.grid = element_blank(),
+      text = element_text(size = 22)
+    ) + 
+    geom_text(aes(label = gene_count), position = position_stack(vjust = 0.5), color = "black", size = 10)
+    
+  # Saving plot
+  dirname <- paste0("images/cor_network/time_subsets/", intToUtf8(64 + i), "_", GA,"_reports")
+  filename <- paste0("modules_", GA, ".png")
+  fileNamePath <- file.path(dirname, filename)
+  ggsave(fileNamePath, plot = bar_plot, width = 10, height = 10)
+}
+
+### Pensar num jeito de visualizar quais são todos os genes de cada modulo e de que pathway eles são.
+```
+
+### Space subsets {style="background-color: #cc0000; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+
+```{r}
+
+space_modules <- list()
+
+for (i in 1:length(space_normbatchsubs)){
+  GR <- levels(space_metasubs[[i]]$GroupedRegion)[1]
+  
+  cts <- space_normbatchsubs[[i]]
+  met <- space_metasubs[[i]]
+  
+  # Correct duplicated popular gene names
+  j = 0
+  while (any(duplicated(substring(rownames(cts), 17)))){
+    rownames(cts)[duplicated(substring(rownames(cts), 17))] <- paste0(rownames(cts)[duplicated(substring(rownames(cts), 17))], "-" ,intToUtf8(64 + j))
+    j = j + 1
+  }
+  rownames(cts) <- substring(rownames(cts), 17)
+  
+  # Sample annotation
+  met$SampleName <- rownames(met)
+  colnames(met)[colnames(met) == "GroupedAge"] <- "Class"
+  sample_annot <- met[,c("SampleName", "Class")]
+  
+  # GMT
+  gmt_fname <- system.file("extdata", "pathways.gmt", package = "CEMiTool")
+  gmt_in <- read_gmt(gmt_fname)
+  
+  # Gene interactions     
+  int_fname <- system.file("extdata", "interactions.tsv", package = "CEMiTool")
+  int_df <- read.delim(int_fname)
+   
+  # Running CEMiTool
+  cem <- cemitool(expr = cts, 
+                  annot = sample_annot, 
+                  gmt = gmt_in, 
+                  interactions = int_df, 
+                  force_beta=TRUE, 
+                  filter=TRUE, 
+                  plot=TRUE, 
+                  verbose=TRUE,
+                  network_type = "signed"
+                  )
+    
+  # create report as html document
+  generate_report(cem, directory =  paste0("images/cor_network/space_subsets/", GR,"_reports"))
+  
+  space_modules <- append(space_modules, list(as.data.frame(cem@module)))
+  
+}
+```
+
+### Space - Modules {style="background-color: #cc0000; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+
+```{r}
+
+for (i in 1:length(space_modules)){
+  GR <- levels(space_metasubs[[i]]$GroupedRegion)[1]
+
+  # Select only wanted genes/rows
+  searchGenes <- paste(enriched_genes, collapse = "|")
+  genIntMod <- space_modules[[i]][grepl(searchGenes, space_modules[[i]]$genes),]
+  
+  # Add pathway column (crazy loop hahaha)
+  genIntMod$pathway <- NA
+  while (anyNA(genIntMod$pathway)){
+    for (j in 1:length(genes_asd$genes_asdnterest)){
+      for (k in 1:length(genIntMod$genes)){
+        if (is.na(genIntMod[k,"pathway"]) & grepl(genes_asd[j,"genes_asdnterest"],genIntMod[k,"genes"])){
+          genIntMod[k,"pathway"] <- as.character(genes_asd[j,"pathway"])
+        }
+      }
+    }
+  }
+  
+  # IMPORTANT: factor "modules" and "pathway" columns
+  genIntMod$modules <- factor(genIntMod$modules)
+  genIntMod$pathway <- factor(genIntMod$pathway)
+  
+  # Calculate the number of genes for each module and pathway type combination
+  gene_counts <- genIntMod %>%
+    group_by(modules, pathway) %>%
+    summarise(gene_count = n()) %>%
+    group_by(modules)
+  
+  # Caculating modules with most genes
+  summarized_counts <- gene_counts %>%
+    group_by(modules) %>%
+    summarise(total_count = sum(gene_count)) %>%
+    arrange(desc(total_count))  # Arrange in descending order of total_count
+  
+  # Reorder the modules column based on the calculated sums
+  gene_counts$modules <- factor(gene_counts$modules, levels = summarized_counts$modules)
+  
+  # Define colors for pathway types
+  pathway_colors <- c("CALCIUM" = "#DA012D", "REELIN" = "#1E90FF", "mTOR" = "#32CD32", "OTHERS" = "gray")
+  
+  # Plot the bar graph
+  bar_plot <- ggplot(gene_counts, aes(x = modules, y = gene_count, fill = pathway)) +
+    geom_bar(stat = "identity", position = "stack") +
+    scale_fill_manual(values = pathway_colors) +
+    labs(title = paste0("Genes of interest in each module for ", GR),
+         x = "Module", y = "Gene Count",
+         fill = "Pathway Type") +
+    theme_minimal() +
+    theme(
+      plot.background = element_rect(fill = "white"),
+      panel.background = element_rect(fill = "white"),
+      panel.grid = element_blank(),
+      text = element_text(size = 22)
+    ) + 
+    geom_text(aes(label = gene_count), position = position_stack(vjust = 0.5), color = "black", size = 10)
+    
+  # Saving plot
+  dirname <- paste0("images/cor_network/space_subsets/", GR, "_reports")
+  filename <- paste0("modules_", GR, ".png")
+  fileNamePath <- file.path(dirname, filename)
+  ggsave(fileNamePath, plot = bar_plot, width = 10, height = 10)
+}
+
+### Pensar num jeito de visualizar quais são todos os genes de cada modulo e de que pathway eles são.
+```
+
+### Proof of method {style="background-color: #cc0000; color: #FFF685; padding-top: 15px;   padding-right: 15px;   padding-bottom: 15px;   padding-left: 15px"}
+
+```{r}
+
 ```
