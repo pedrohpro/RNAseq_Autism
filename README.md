@@ -9,6 +9,4 @@ Oriented by: Andréa Laurato Sertié
 Co-oriented by: André Luiz Teles e Silva, Helder Takashi Imoto Nakaya, Jonathan Peña Avila
 
 
-Counts data from: https://www.brainspan.org/static/download.html
-
-Donor metadata from: http://development.psychencode.org/#
+Counts data and donor metadata from: http://development.psychencode.org/#
